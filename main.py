@@ -1,3 +1,12 @@
+'''
+Xenial guides generator
+=======================
+
+This module contains class for generating xenia guides, which are consumed by the xenial app.
+
+Modules API and guide format is experimental and highly unstable.
+'''
+
 import os
 import random
 import json
@@ -64,6 +73,8 @@ LANGUAGES = ['Arabic', 'English', 'German', 'Greek', 'Hungarian', 'Irish', 'Kurd
 class GuideGenerator:
     @staticmethod
     def _generate_dummy_guide_categories(tags):
+        """Private method used for generating the dummy guide's categories"""
+
         categories = []
         num_categories = random.randint(MIN_NUM_CATEGORIES, MAX_NUM_CATEGORIES)
         description_length = random.randint(1, MAX_CATEGORY_DESCRIPTION_LENGTH)
@@ -84,6 +95,8 @@ class GuideGenerator:
 
     @staticmethod
     def _markup_text(text, num_articles):
+        """Private method (naively) inserting kivy markups to the provided text"""
+
         markup_types = ['bold', 'italic', 'ref']
         words = text.split()
         markup_ratio = 1 / 8
@@ -106,6 +119,8 @@ class GuideGenerator:
 
     @classmethod
     def _generate_dummy_guide_article_content_item(cls, current_item_type, num_articles):
+        """Private method fro generating a dummy guide article content item"""
+
         item = {'type': current_item_type}
         if current_item_type == 'subtitle':
             text = fake.paragraph()
@@ -136,6 +151,8 @@ class GuideGenerator:
 
     @classmethod
     def _generate_dummy_guide_article_content(cls ,parent_article_id, num_articles):
+        """Private method for generating a dummy guide article content"""
+
         content = []
         content_types = ['subtitle', 'paragraph', 'image', 'audio', 'video']
         num_content_items = random.randint(1, MAX_NUM_ARTICLE_CONTENT_ITEMS)
@@ -152,6 +169,8 @@ class GuideGenerator:
 
     @classmethod
     def _generate_dummy_guide_articles(cls, tags):
+        """Private method fro generating a dummy guide articles"""
+
         os.mkdir(TMP_CONTENT_PATH)
         os.mkdir(TMP_MEDIA_PATH)
         os.mkdir(TMP_IMAGE_PATH)
@@ -178,7 +197,10 @@ class GuideGenerator:
             json.dump(articles, f)
 
     @staticmethod
-    def _clean_tmp_dir():
+    def _reset_tmp_dir():
+        """Private method for resetting tmp directory, in which the generated dummy guide components
+        are temporarily stored before packing
+        """
         if os.path.isdir(TMP_PATH):
             shutil.rmtree(TMP_PATH)
         os.mkdir(TMP_PATH)
@@ -189,6 +211,8 @@ class GuideGenerator:
 
     @staticmethod
     def _dist_pack_dummy_guide(guide_name):
+        """Private methods which packs all dummy guide components into single archive file"""
+
         tmp_filenames = os.listdir(TMP_PATH)
         with tarfile.open(os.path.join(DIST_PATH, f'{guide_name}.tgz'), 'w:gz') as tar:
             os.chdir(TMP_PATH)
@@ -198,6 +222,8 @@ class GuideGenerator:
 
     @classmethod
     def generate_dummy_guide(cls, guide_name):
+        """Public method for generating dummy guide"""
+
         guide_icon = random.choice(os.listdir(GUIDES_ICONS_PATH))
         from_country, to_country = random.sample(COUNTRIES, 2)
         description_length = random.randint(1, MAX_GUIDE_DESCRIPTION_LENGTH)
@@ -213,7 +239,7 @@ class GuideGenerator:
             'to_place': to_country,
             'tags': tags
         }
-        cls._clean_tmp_dir()
+        cls._reset_tmp_dir()
         shutil.copy(os.path.join(GUIDES_ICONS_PATH, guide_icon), TMP_GUIDES_ICONS_PATH)
         with open(os.path.join(TMP_PATH, 'guides.json'), 'w') as f:
             json.dump(guide, f)
@@ -222,7 +248,7 @@ class GuideGenerator:
         cls._generate_dummy_guide_articles(tags)
 
         cls._dist_pack_dummy_guide(guide_name)
-        shutil.rmtree(TMP_PATH)
+        shutil.rmtree(TMP_PATH)  # Clean temporary directory for the guide assembling when finished
 
 
 if __name__ == '__main__':
