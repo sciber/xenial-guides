@@ -241,7 +241,7 @@ class GuideGenerator:
         }
         cls._reset_tmp_dir()
         shutil.copy(os.path.join(GUIDES_ICONS_PATH, guide_icon), TMP_GUIDES_ICONS_PATH)
-        with open(os.path.join(TMP_PATH, 'guides.json'), 'w') as f:
+        with open(os.path.join(TMP_PATH, 'guide.json'), 'w') as f:
             json.dump(guide, f)
 
         cls._generate_dummy_guide_categories(tags)
