@@ -9,6 +9,7 @@ Modules API and guide format is experimental and highly unstable.
 
 import os
 import random
+import datetime
 import json
 from faker import Faker
 import shutil
@@ -65,6 +66,9 @@ MAX_ARTICLE_SYNOPSIS_LENGTH = 5
 MAX_NUM_ARTICLE_CONTENT_ITEMS = 20
 MAX_ARTICLE_PARAGRAPH_LENGTH = 5
 MAX_ARTICLE_MEDIA_CAPTION_LENGTH = 4
+
+MIN_NUM_BOOKMARKS = 3
+MAX_NUM_BOOKMARKS = MIN_NUM_ARTICLES
 
 COUNTRIES = ['Germany', 'Greece', 'Hungary', 'Ireland', 'Serbia', 'Slovakia', 'Syria', 'Turkey']
 LANGUAGES = ['Arabic', 'English', 'German', 'Greek', 'Hungarian', 'Irish', 'Kurdish', 'Serbian', 'Slovak', 'Turkish']
@@ -167,6 +171,19 @@ class GuideGenerator:
         with open(os.path.join(TMP_CONTENT_PATH, f'{parent_article_id}.json'), 'w') as f:
             json.dump(content, f)
 
+    @staticmethod
+    def _generate_dummy_guide_bookmarks(num_articles):
+        bookmarks = []
+        num_bookmarks = random.randint(MIN_NUM_BOOKMARKS, num_articles)
+        for bookmark_idx in range(1, num_bookmarks):
+            article_id = random.randint(0, num_articles - 1)
+            bookmarks.append({
+                'article_id': article_id,
+                'created_at': str(fake.date_between(start_date="-30y", end_date="today"))
+            })
+        with open(os.path.join(TMP_PATH, 'bookmarks.json'), 'w') as f:
+            json.dump(bookmarks, f)
+
     @classmethod
     def _generate_dummy_guide_articles(cls, tags):
         """Private method fro generating a dummy guide articles"""
@@ -192,6 +209,8 @@ class GuideGenerator:
             })
             shutil.copy(os.path.join(ARTICLES_ICONS_PATH, article_icon), TMP_ARTICLES_ICONS_PATH)
             cls._generate_dummy_guide_article_content(article_idx, num_articles)
+
+        cls._generate_dummy_guide_bookmarks(num_articles)
 
         with open(os.path.join(TMP_PATH, 'articles.json'), 'w') as f:
             json.dump(articles, f)
