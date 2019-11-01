@@ -50,7 +50,7 @@ MAX_NUM_CATEGORIES = 10
 MIN_NUM_CATEGORY_TAGS = 1
 if MIN_NUM_CATEGORY_TAGS > MAX_NUM_TAGS:
     raise ValueError('MIN_NUM_CATEGORY_TAGS cannot be bigger than MAX_NUM_TAGS')
-MAX_NUM_CATEGORY_TAGS = 5
+MAX_NUM_CATEGORY_TAGS = 3
 MAX_CATEGORY_NAME_LENGTH = 6
 MAX_CATEGORY_DESCRIPTION_LENGTH = 3
 
@@ -59,7 +59,7 @@ MAX_NUM_ARTICLES = 15
 MIN_NUM_ARTICLE_TAGS = 0
 if MIN_NUM_CATEGORY_TAGS > MAX_NUM_TAGS:
     raise ValueError('MIN_NUM_ARTICLE_TAGS cannot be bigger than MAX_NUM_TAGS')
-MAX_NUM_ARTICLE_TAGS = 8
+MAX_NUM_ARTICLE_TAGS = 9
 MAX_ARTICLE_TITLE_LENGTH = 9
 MIN_ARTICLE_SYNOPSIS_LENGTH = 2
 MAX_ARTICLE_SYNOPSIS_LENGTH = 5
@@ -128,7 +128,7 @@ class GuideGenerator:
         item = {'type': current_item_type}
         if current_item_type == 'subtitle':
             text = fake.paragraph()
-            item['text'] = cls._markup_text(text, num_articles)
+            item['text'] = text
         elif current_item_type == 'paragraph':
             text = fake.paragraph(random.randint(1, MAX_ARTICLE_PARAGRAPH_LENGTH))
             item['text'] = cls._markup_text(text, num_articles)
@@ -166,6 +166,9 @@ class GuideGenerator:
                 current_item_type = 'paragraph'
             else:
                 current_item_type = random.choice(content_types)
+                if current_item_type == 'subtitle' and item_idx == (num_content_items - 1):
+                    current_item_type = 'paragraph'
+
             content.append(cls._generate_dummy_guide_article_content_item(current_item_type, num_articles))
             last_item_type = current_item_type
         with open(os.path.join(TMP_CONTENT_PATH, f'{parent_article_id}.json'), 'w') as f:
