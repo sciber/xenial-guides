@@ -20,7 +20,7 @@ fake = Faker()
 DIST_PATH = 'dist'
 TMP_PATH = 'tmp'
 TMP_ICONS_PATH = os.path.join(TMP_PATH, 'icons')
-TMP_GUIDES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'guides')
+TMP_GUIDES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'guide')
 TMP_CATEGORIES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'categories')
 TMP_ARTICLES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'articles')
 TMP_CONTENT_PATH = os.path.join(TMP_PATH, 'content')
@@ -60,6 +60,7 @@ MIN_NUM_ARTICLE_TAGS = 0
 if MIN_NUM_CATEGORY_TAGS > MAX_NUM_TAGS:
     raise ValueError('MIN_NUM_ARTICLE_TAGS cannot be bigger than MAX_NUM_TAGS')
 MAX_NUM_ARTICLE_TAGS = 9
+MAX_ARTICLE_NAME_LENGTH = 6
 MAX_ARTICLE_TITLE_LENGTH = 9
 MIN_ARTICLE_SYNOPSIS_LENGTH = 2
 MAX_ARTICLE_SYNOPSIS_LENGTH = 5
@@ -87,7 +88,6 @@ class GuideGenerator:
             category_icon = category_icon_files[category_idx]
             num_category_tags = random.randint(MIN_NUM_CATEGORY_TAGS, MAX_NUM_CATEGORY_TAGS)
             categories.append({
-                'id': category_idx,
                 'icon': category_icon,
                 'name': fake.sentence(nb_words=random.randint(1, MAX_CATEGORY_NAME_LENGTH))[:-1],
                 'description': fake.paragraph(description_length),
@@ -95,10 +95,10 @@ class GuideGenerator:
             })
             shutil.copy(os.path.join(CATEGORIES_ICONS_PATH, category_icon), TMP_CATEGORIES_ICONS_PATH)
         with open(os.path.join(TMP_PATH, 'categories.json'), 'w') as f:
-            json.dump(categories, f)
+            json.dump(categories, f, indent=4)
 
     @staticmethod
-    def _markup_text(text, num_articles):
+    def _markup_text(text, articles):
         """Private method (naively) inserting kivy markups to the provided text"""
 
         markup_types = ['bold', 'italic', 'ref']
@@ -115,15 +115,15 @@ class GuideGenerator:
                 words[markup_start] = '[i]' + words[markup_start]
                 words[markup_end] = words[markup_end] + '[/i]'
             elif markup_type == 'ref':
-                article_ref = str(random.randint(0, num_articles - 1))
+                article_ref = random.choice(articles)['name']
                 words[markup_start] = f'[color=#008888][u][ref={article_ref}]' + words[markup_start]
                 words[markup_end] = words[markup_end] + '[/ref][/u][/color]'
         markupped_text = ' '.join(words)
         return markupped_text
 
     @classmethod
-    def _generate_dummy_guide_article_content_item(cls, current_item_type, num_articles):
-        """Private method fro generating a dummy guide article content item"""
+    def _generate_dummy_guide_article_content_item(cls, current_item_type, articles):
+        """Private method for generating a dummy guide article content item"""
 
         item = {'type': current_item_type}
         if current_item_type == 'subtitle':
@@ -131,30 +131,30 @@ class GuideGenerator:
             item['text'] = text
         elif current_item_type == 'paragraph':
             text = fake.paragraph(random.randint(1, MAX_ARTICLE_PARAGRAPH_LENGTH))
-            item['text'] = cls._markup_text(text, num_articles)
+            item['text'] = cls._markup_text(text, articles)
         elif current_item_type == 'image':
             item['source'] = random.choice(os.listdir(ARTICLE_IMAGE_PATH))
             shutil.copy(os.path.join(ARTICLE_IMAGE_PATH, item['source']), os.path.join(TMP_IMAGE_PATH, item['source']))
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
-            item['caption'] = cls._markup_text(caption, num_articles)
+            item['caption'] = cls._markup_text(caption, articles)
         elif current_item_type == 'audio':
             item['source'] = random.choice(os.listdir(ARTICLE_AUDIO_PATH))
             shutil.copy(os.path.join(ARTICLE_AUDIO_PATH, item['source']), os.path.join(TMP_AUDIO_PATH, item['source']))
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
-            item['caption'] = cls._markup_text(caption, num_articles)
+            item['caption'] = cls._markup_text(caption, articles)
         elif current_item_type == 'video':
             item['source'] = random.choice(os.listdir(ARTICLE_VIDEO_PATH))
             shutil.copy(os.path.join(ARTICLE_VIDEO_PATH, item['source']), os.path.join(TMP_VIDEO_PATH, item['source']))
             item['screenshot'] = item['source'][:-3] + 'jpg'
             shutil.copy(os.path.join(ARTICLE_VIDEO_PATH, item['screenshot']), os.path.join(TMP_VIDEO_PATH, item['screenshot']))
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
-            item['caption'] = cls._markup_text(caption, num_articles)
+            item['caption'] = cls._markup_text(caption, articles)
         else:
             raise ValueError('Provided unknown type of a content item')
         return item
 
     @classmethod
-    def _generate_dummy_guide_article_content(cls ,parent_article_id, num_articles):
+    def _generate_dummy_guide_article_content(cls, article_name, articles):
         """Private method for generating a dummy guide article content"""
 
         content = []
@@ -169,23 +169,23 @@ class GuideGenerator:
                 if current_item_type == 'subtitle' and item_idx == (num_content_items - 1):
                     current_item_type = 'paragraph'
 
-            content.append(cls._generate_dummy_guide_article_content_item(current_item_type, num_articles))
+            content.append(cls._generate_dummy_guide_article_content_item(current_item_type, articles))
             last_item_type = current_item_type
-        with open(os.path.join(TMP_CONTENT_PATH, f'{parent_article_id}.json'), 'w') as f:
-            json.dump(content, f)
+        with open(os.path.join(TMP_CONTENT_PATH, article_name + '.json'), 'w') as f:
+            json.dump(content, f, indent=4)
 
     @staticmethod
-    def _generate_dummy_guide_bookmarks(num_articles):
+    def _generate_dummy_guide_bookmarks(articles):
         bookmarks = []
-        num_bookmarks = random.randint(MIN_NUM_BOOKMARKS, num_articles)
-        for bookmark_idx in range(1, num_bookmarks):
-            article_id = random.randint(0, num_articles - 1)
+        num_bookmarks = random.randint(MIN_NUM_BOOKMARKS, len(articles))
+        bookmarked_article = random.sample(articles, num_bookmarks)
+        for article in bookmarked_article:
             bookmarks.append({
-                'article_id': article_id,
+                'article_name': article['name'],
                 'created_at': str(fake.date_between(start_date="-30y", end_date="today"))
             })
         with open(os.path.join(TMP_PATH, 'bookmarks.json'), 'w') as f:
-            json.dump(bookmarks, f)
+            json.dump(bookmarks, f, indent=4)
 
     @classmethod
     def _generate_dummy_guide_articles(cls, tags):
@@ -204,19 +204,21 @@ class GuideGenerator:
             synopsis_length = random.randint(MIN_ARTICLE_SYNOPSIS_LENGTH, MAX_ARTICLE_SYNOPSIS_LENGTH)
             article_icon = article_icon_files[article_idx]
             articles.append({
-                'id': article_idx,
                 'icon': article_icon,
+                'name': fake.sentence(nb_words=random.randint(1, MAX_ARTICLE_NAME_LENGTH))[:-1],
                 'title': fake.sentence(nb_words=random.randint(1, MAX_ARTICLE_TITLE_LENGTH))[:-1],
                 'synopsis': fake.paragraph(synopsis_length),
                 'tags': random.sample(tags, num_article_tags),
             })
             shutil.copy(os.path.join(ARTICLES_ICONS_PATH, article_icon), TMP_ARTICLES_ICONS_PATH)
-            cls._generate_dummy_guide_article_content(article_idx, num_articles)
 
-        cls._generate_dummy_guide_bookmarks(num_articles)
+        for article in articles:
+            cls._generate_dummy_guide_article_content(article['name'], articles)
+
+        cls._generate_dummy_guide_bookmarks(articles)
 
         with open(os.path.join(TMP_PATH, 'articles.json'), 'w') as f:
-            json.dump(articles, f)
+            json.dump(articles, f, indent=4)
 
     @staticmethod
     def _reset_tmp_dir():
@@ -264,7 +266,7 @@ class GuideGenerator:
         cls._reset_tmp_dir()
         shutil.copy(os.path.join(GUIDES_ICONS_PATH, guide_icon), TMP_GUIDES_ICONS_PATH)
         with open(os.path.join(TMP_PATH, 'guide.json'), 'w') as f:
-            json.dump(guide, f)
+            json.dump(guide, f, indent=4)
 
         cls._generate_dummy_guide_categories(tags)
         cls._generate_dummy_guide_articles(tags)
