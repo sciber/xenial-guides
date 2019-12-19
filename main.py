@@ -72,7 +72,16 @@ MIN_NUM_BOOKMARKS = 3
 MAX_NUM_BOOKMARKS = MIN_NUM_ARTICLES
 
 COUNTRIES = ['Germany', 'Greece', 'Hungary', 'Ireland', 'Serbia', 'Slovakia', 'Syria', 'Turkey']
-LANGUAGES = ['Arabic', 'English', 'German', 'Greek', 'Hungarian', 'Irish', 'Kurdish', 'Serbian', 'Slovak', 'Turkish']
+LANGUAGES = [('Arabic', 'ar'),
+             ('English', 'en'),
+             ('German', 'de'),
+             ('Greek', 'el'),
+             ('Hungarian', 'hu'),
+             ('Irish', 'ga'),
+             ('Kurdish', 'ku'),
+             ('Serbian', 'sr'),
+             ('Slovak', 'sk'),
+             ('Turkish', 'tr')]
 
 
 class GuideGenerator:
@@ -143,7 +152,7 @@ class GuideGenerator:
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
             item['caption'] = cls._markup_text(caption, articles)
         elif current_item_type == 'video':
-            item['source'] = random.choice(os.listdir(ARTICLE_VIDEO_PATH))
+            item['source'] = random.choice(os.listdir(ARTICLE_VIDEO_PATH))[:-3] + 'mp4'
             shutil.copy(os.path.join(ARTICLE_VIDEO_PATH, item['source']), os.path.join(TMP_VIDEO_PATH, item['source']))
             item['screenshot'] = item['source'][:-3] + 'jpg'
             shutil.copy(os.path.join(ARTICLE_VIDEO_PATH, item['screenshot']), os.path.join(TMP_VIDEO_PATH, item['screenshot']))
