@@ -1,45 +1,38 @@
 '''
-Xenial guides generator
+Xenial dummy guides generator
 =======================
 
-This module contains class for generating xenia guides, which are consumed by the xenial app.
+This module contains class for generating xenia dummy guides, which are consumed by the xenial app.
 
 Modules API and guide format is experimental and highly unstable.
 '''
 
 import os
 import random
-import datetime
 import json
 from faker import Faker
 import shutil
-import tarfile
+from zipfile import ZipFile
 
 fake = Faker()
 
 DIST_PATH = 'dist'
 TMP_PATH = 'tmp'
-TMP_ICONS_PATH = os.path.join(TMP_PATH, 'icons')
-TMP_GUIDES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'guide')
-TMP_CATEGORIES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'categories')
-TMP_ARTICLES_ICONS_PATH = os.path.join(TMP_ICONS_PATH, 'articles')
-TMP_CONTENT_PATH = os.path.join(TMP_PATH, 'content')
-TMP_MEDIA_PATH = os.path.join(TMP_CONTENT_PATH, 'media')
-TMP_IMAGE_PATH = os. path.join(TMP_MEDIA_PATH, 'image')
-TMP_AUDIO_PATH = os. path.join(TMP_MEDIA_PATH, 'audio')
-TMP_VIDEO_PATH = os. path.join(TMP_MEDIA_PATH, 'video')
+
+ARTICLES_PATH = 'articles'
+
+MEDIA_PATH = 'media'
+IMAGE_PATH = os.path.join(MEDIA_PATH, 'image')
+AUDIO_PATH = os.path.join(MEDIA_PATH, 'audio')
+VIDEO_PATH = os.path.join(MEDIA_PATH, 'video')
 
 ICONS_PATH = 'icons'
-ARTICLES_ICONS_PATH = os.path.join(ICONS_PATH, 'articles')
+GUIDE_ICON_PATH = os.path.join(ICONS_PATH, 'guide')
 CATEGORIES_ICONS_PATH = os.path.join(ICONS_PATH, 'categories')
-GUIDES_ICONS_PATH = os.path.join(ICONS_PATH, 'guides')
+ARTICLES_ICONS_PATH = os.path.join(ICONS_PATH, 'articles')
 
-ARTICLE_MEDIA_PATH = 'media'
-ARTICLE_IMAGE_PATH = os.path.join(ARTICLE_MEDIA_PATH, 'image')
-ARTICLE_AUDIO_PATH = os.path.join(ARTICLE_MEDIA_PATH, 'audio')
-ARTICLE_VIDEO_PATH = os.path.join(ARTICLE_MEDIA_PATH, 'video')
 
-MAX_GUIDE_TITLE_LENGTH = 10
+MAX_GUIDE_TITLE_LENGTH = 8
 MAX_GUIDE_DESCRIPTION_LENGTH = 4
 
 MIN_NUM_TAGS = 10
@@ -97,12 +90,13 @@ class GuideGenerator:
             category_icon = category_icon_files[category_idx]
             num_category_tags = random.randint(MIN_NUM_CATEGORY_TAGS, MAX_NUM_CATEGORY_TAGS)
             categories.append({
-                'icon': category_icon,
+                'icon': os.path.join(ICONS_PATH, CATEGORIES_ICONS_PATH, category_icon),
                 'name': fake.sentence(nb_words=random.randint(1, MAX_CATEGORY_NAME_LENGTH))[:-1],
                 'description': fake.paragraph(description_length),
                 'tags': random.sample(tags, num_category_tags)
             })
-            shutil.copy(os.path.join(CATEGORIES_ICONS_PATH, category_icon), TMP_CATEGORIES_ICONS_PATH)
+            shutil.copy(os.path.join(CATEGORIES_ICONS_PATH, category_icon),
+                        os.path.join(TMP_PATH, CATEGORIES_ICONS_PATH))
         with open(os.path.join(TMP_PATH, 'categories.json'), 'w') as f:
             json.dump(categories, f, indent=4)
 
@@ -142,31 +136,40 @@ class GuideGenerator:
             text = fake.paragraph(random.randint(1, MAX_ARTICLE_PARAGRAPH_LENGTH))
             item['text'] = cls._markup_text(text, articles)
         elif current_item_type == 'image':
-            item['source'] = random.choice(os.listdir(ARTICLE_IMAGE_PATH))
-            shutil.copy(os.path.join(ARTICLE_IMAGE_PATH, item['source']), os.path.join(TMP_IMAGE_PATH, item['source']))
+            image_filename = random.choice(os.listdir(IMAGE_PATH))
+            item['source'] = os.path.join(IMAGE_PATH, image_filename)
+            shutil.copy(os.path.join(item['source']), os.path.join(TMP_PATH, item['source']))
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
             item['caption'] = cls._markup_text(caption, articles)
         elif current_item_type == 'audio':
-            item['source'] = random.choice(os.listdir(ARTICLE_AUDIO_PATH))
-            shutil.copy(os.path.join(ARTICLE_AUDIO_PATH, item['source']), os.path.join(TMP_AUDIO_PATH, item['source']))
+            audio_filename = random.choice(os.listdir(AUDIO_PATH))
+            item['source'] = os.path.join(AUDIO_PATH, audio_filename)
+            shutil.copy(os.path.join(item['source']), os.path.join(TMP_PATH, item['source']))
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
             item['caption'] = cls._markup_text(caption, articles)
         elif current_item_type == 'video':
-            item['source'] = random.choice(os.listdir(ARTICLE_VIDEO_PATH))[:-3] + 'mp4'
-            shutil.copy(os.path.join(ARTICLE_VIDEO_PATH, item['source']), os.path.join(TMP_VIDEO_PATH, item['source']))
-            item['screenshot'] = item['source'][:-3] + 'jpg'
-            shutil.copy(os.path.join(ARTICLE_VIDEO_PATH, item['screenshot']), os.path.join(TMP_VIDEO_PATH, item['screenshot']))
+            video_filename = random.choice(os.listdir(VIDEO_PATH))
+            item['source'] = os.path.join(VIDEO_PATH, video_filename)
+            shutil.copy(os.path.join(item['source']), os.path.join(TMP_PATH, item['source']))
             caption = fake.paragraph(random.randint(1, MAX_ARTICLE_MEDIA_CAPTION_LENGTH))
             item['caption'] = cls._markup_text(caption, articles)
         else:
-            raise ValueError('Provided unknown type of a content item')
+            raise ValueError('Provided a content item of unknown type.')
         return item
 
     @classmethod
-    def _generate_dummy_guide_article_content(cls, article_name, articles):
+    def _generate_dummy_guide_article_content(cls, article_head, articles):
         """Private method for generating a dummy guide article content"""
-
-        content = []
+        article = {
+            'name': article_head['name'],
+            'icon': article_head['icon'],
+            'tags': article_head['tags'],
+        }
+        content_items = []
+        content_items.extend([{'type': 'title',
+                               'text': article_head['title']},
+                              {'type': 'synopsis',
+                               'text': article_head['synopsis']}])
         content_types = ['subtitle', 'paragraph', 'image', 'audio', 'video']
         num_content_items = random.randint(1, MAX_NUM_ARTICLE_CONTENT_ITEMS)
         last_item_type = None
@@ -178,19 +181,21 @@ class GuideGenerator:
                 if current_item_type == 'subtitle' and item_idx == (num_content_items - 1):
                     current_item_type = 'paragraph'
 
-            content.append(cls._generate_dummy_guide_article_content_item(current_item_type, articles))
+            content_items.append(cls._generate_dummy_guide_article_content_item(current_item_type, articles))
             last_item_type = current_item_type
-        with open(os.path.join(TMP_CONTENT_PATH, article_name + '.json'), 'w') as f:
-            json.dump(content, f, indent=4)
+        article['content'] = content_items
+        with open(os.path.join(TMP_PATH, ARTICLES_PATH, article['name'] + '.json'), 'w') as f:
+            json.dump(article, f, indent=4)
 
     @staticmethod
-    def _generate_dummy_guide_bookmarks(articles):
+    def _generate_dummy_guide_bookmarks(articles_heads):
         bookmarks = []
-        num_bookmarks = random.randint(MIN_NUM_BOOKMARKS, len(articles))
-        bookmarked_article = random.sample(articles, num_bookmarks)
+        num_bookmarks = random.randint(MIN_NUM_BOOKMARKS, len(articles_heads))
+        bookmarked_article = random.sample(articles_heads, num_bookmarks)
         for article in bookmarked_article:
             bookmarks.append({
                 'article_name': article['name'],
+                'article_title': article['title'],
                 'created_at': str(fake.date_between(start_date="-30y", end_date="today"))
             })
         with open(os.path.join(TMP_PATH, 'bookmarks.json'), 'w') as f:
@@ -200,34 +205,43 @@ class GuideGenerator:
     def _generate_dummy_guide_articles(cls, tags):
         """Private method fro generating a dummy guide articles"""
 
-        os.mkdir(TMP_CONTENT_PATH)
-        os.mkdir(TMP_MEDIA_PATH)
-        os.mkdir(TMP_IMAGE_PATH)
-        os.mkdir(TMP_AUDIO_PATH)
-        os.mkdir(TMP_VIDEO_PATH)
-        articles = []
+        os.mkdir(os.path.join(TMP_PATH, ARTICLES_PATH))
+        os.mkdir(os.path.join(TMP_PATH, MEDIA_PATH))
+        os.mkdir(os.path.join(TMP_PATH, IMAGE_PATH))
+        os.mkdir(os.path.join(TMP_PATH, AUDIO_PATH))
+        os.mkdir(os.path.join(TMP_PATH, VIDEO_PATH))
+        articles_heads = []
         num_articles = random.randint(MIN_NUM_ARTICLES, MAX_NUM_ARTICLES)
         article_icon_files = random.sample(os.listdir(ARTICLES_ICONS_PATH), num_articles)
         for article_idx in range(num_articles):
             num_article_tags = random.randint(MIN_NUM_ARTICLE_TAGS, MAX_NUM_ARTICLE_TAGS)
             synopsis_length = random.randint(MIN_ARTICLE_SYNOPSIS_LENGTH, MAX_ARTICLE_SYNOPSIS_LENGTH)
             article_icon = article_icon_files[article_idx]
-            articles.append({
-                'icon': article_icon,
+            articles_heads.append({
+                'icon': os.path.join(ARTICLES_ICONS_PATH, article_icon),
                 'name': fake.sentence(nb_words=random.randint(1, MAX_ARTICLE_NAME_LENGTH))[:-1],
                 'title': fake.sentence(nb_words=random.randint(1, MAX_ARTICLE_TITLE_LENGTH))[:-1],
                 'synopsis': fake.paragraph(synopsis_length),
                 'tags': random.sample(tags, num_article_tags),
             })
-            shutil.copy(os.path.join(ARTICLES_ICONS_PATH, article_icon), TMP_ARTICLES_ICONS_PATH)
+            shutil.copy(os.path.join(ARTICLES_ICONS_PATH, article_icon),
+                        os.path.join(TMP_PATH, ARTICLES_ICONS_PATH))
 
-        for article in articles:
-            cls._generate_dummy_guide_article_content(article['name'], articles)
+        for article_head in articles_heads:
+            cls._generate_dummy_guide_article_content(article_head, articles_heads)
 
-        cls._generate_dummy_guide_bookmarks(articles)
+        cls._generate_dummy_guide_bookmarks(articles_heads)
 
         with open(os.path.join(TMP_PATH, 'articles.json'), 'w') as f:
-            json.dump(articles, f, indent=4)
+            json.dump(articles_heads, f, indent=4)
+
+    @staticmethod
+    def _generate_dummy_guide_content_list():
+        with open(os.path.join(TMP_PATH, 'articles.json'), 'r') as f:
+            articles = json.load(f)
+        articles_names_titles = random.sample([(article['name'], article['title']) for article in articles],
+                                              len(articles))
+        return articles_names_titles
 
     @staticmethod
     def _reset_tmp_dir():
@@ -237,55 +251,71 @@ class GuideGenerator:
         if os.path.isdir(TMP_PATH):
             shutil.rmtree(TMP_PATH)
         os.mkdir(TMP_PATH)
-        os.mkdir(TMP_ICONS_PATH)
-        os.mkdir(TMP_GUIDES_ICONS_PATH)
-        os.mkdir(TMP_CATEGORIES_ICONS_PATH)
-        os.mkdir(TMP_ARTICLES_ICONS_PATH)
+        os.mkdir(os.path.join(TMP_PATH, ICONS_PATH))
+        os.mkdir(os.path.join(TMP_PATH, GUIDE_ICON_PATH))
+        os.mkdir(os.path.join(TMP_PATH, CATEGORIES_ICONS_PATH))
+        os.mkdir(os.path.join(TMP_PATH, ARTICLES_ICONS_PATH))
 
     @staticmethod
     def _dist_pack_dummy_guide(guide_name):
         """Private methods which packs all dummy guide components into single archive file"""
 
-        tmp_filenames = os.listdir(TMP_PATH)
-        with tarfile.open(os.path.join(DIST_PATH, f'{guide_name}.tgz'), 'w:gz') as tar:
-            os.chdir(TMP_PATH)
-            for filename in tmp_filenames:
-                tar.add(os.path.join(filename))
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        file_paths = []
+        working_dir = os.getcwd()
+        os.chdir(TMP_PATH)
+        for root, directory, files in os.walk('.'):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                file_paths.append(filepath)
+
+        with ZipFile(f'{guide_name}.zip', 'w') as zip:
+            for file in file_paths:
+                zip.write(file)
+
+        os.chdir(working_dir)
+        os.rename(os.path.join(TMP_PATH, f'{guide_name}.zip'), os.path.join(DIST_PATH, f'{guide_name}.zip'))
 
     @classmethod
     def generate_dummy_guide(cls, guide_name):
         """Public method for generating dummy guide"""
 
-        guide_icon = random.choice(os.listdir(GUIDES_ICONS_PATH))
+        cls._reset_tmp_dir()
+
+        guide_icon = random.choice(os.listdir(GUIDE_ICON_PATH))
         from_country, to_country = random.sample(COUNTRIES, 2)
         description_length = random.randint(1, MAX_GUIDE_DESCRIPTION_LENGTH)
         num_tags = random.randint(MIN_NUM_TAGS, MAX_NUM_TAGS)
         tags = fake.words(num_tags)
+
+        cls._generate_dummy_guide_categories(tags)
+        cls._generate_dummy_guide_articles(tags)
+
         guide = {
-            'name': guide_name,
-            'icon': guide_icon,
+            'name': guide_name,  # is the guide file name without the zip extension
+            'version': '0.1',
+            'icon': os.path.join(GUIDE_ICON_PATH, guide_icon),
             'title': fake.sentence(nb_words=random.randint(1, MAX_GUIDE_TITLE_LENGTH))[:-1],
             'description': fake.paragraph(description_length),
             'lang': random.choice(LANGUAGES),
             'from_place': from_country,
             'to_place': to_country,
-            'tags': tags
+            # 'tags': tags  # commented out because it will be generated from articles and categories during import
+            'content': cls._generate_dummy_guide_content_list()
         }
-        cls._reset_tmp_dir()
-        shutil.copy(os.path.join(GUIDES_ICONS_PATH, guide_icon), TMP_GUIDES_ICONS_PATH)
+        os.remove(os.path.join(TMP_PATH, 'articles.json'))  # all articles in the intended order are already listed in the guide['content']
+
+        shutil.copy(os.path.join(GUIDE_ICON_PATH, guide_icon),
+                    os.path.join(TMP_PATH, GUIDE_ICON_PATH))
+
         with open(os.path.join(TMP_PATH, 'guide.json'), 'w') as f:
             json.dump(guide, f, indent=4)
-
-        cls._generate_dummy_guide_categories(tags)
-        cls._generate_dummy_guide_articles(tags)
 
         cls._dist_pack_dummy_guide(guide_name)
         shutil.rmtree(TMP_PATH)  # Clean temporary directory for the guide assembling when finished
 
 
 if __name__ == '__main__':
-    guide_name = input('Guide name: ')
+    guide_name = input('Guide name: ').lower().replace(' ', '_')
     if not guide_name:
         guide_name = 'dummy'
 
